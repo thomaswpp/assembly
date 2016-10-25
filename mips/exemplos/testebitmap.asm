@@ -4,7 +4,7 @@
 .end_macro
 
 .data
-what0: .word 0x00FF0000, 0x00FF0000, 0x00FF0000, 0x00FF0000
+what0: .word 0x10FF0000, 0x10FF0000, 0x10FF0000, 0x10FF0000
 what1: .word 0x00FFFF00, 0x00FFFF00, 0x00FFFF00, 0x00FFFF00
 what2: .word 0x00FFFF00, 0x00FFFF00, 0x00FFFF00, 0x00FFFF00
 what3: .word 0x00FFFF00, 0x00FFFF00, 0x00FFFF00, 0x00FFFF00
@@ -25,7 +25,7 @@ what17: .word 0x00FFFF00, 0x00FFFF00, 0x00FFFF11, 0x00FFFF00
 what18: .word 0x00FFFF00, 0x00FFFF00, 0x00FFFF11, 0x00FFFF00
 what19: .word 0x00FFFF00, 0x00FFFF00, 0x00FFFF11, 0x00FFFF00
 what20: .word 0x00FF0000, 0x00FF0000, 0x00FF0000, 0x00FF0000
-
+texto: .asciiz "Thomas William do Prado"
 .text     
 main:
     li $t1, 0
@@ -34,8 +34,8 @@ main:
 loop:
     lw $t4, what0($t1)
     sw $t4, what0($t1)
-    lw $t5, what0($t3)
-    sw $t5, what0($t3)
+    lw $t4, texto($t1)
+    sw $t4, texto($t1)
     addu $t1, $t1, $t2
     addu $t3, $t3, $t2
     bne $t1, $t3, loop  
