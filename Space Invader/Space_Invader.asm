@@ -32,10 +32,9 @@ aircraftColor:	 .word 0xcc6611  #green
 #bulletColor: 	 .word 0x00228b22  #green
 
 #config aircraft
-
-aircraftX: 	.byte 15   #Player initial position
-aircraftY:	.byte 29   #Player initial position
-aircraftSize: 	.byte 18  
+aircraftX: 	.word 15   #Player initial position
+aircraftY:	.word 29   #Player initial position
+aircraftSize: 	.word 18  
 bulletAir:	.word 0	   #Address in memory of the trigger position
 bulletAirExist: .byte 0    # 0 = no exist trigger, 1 = exist trigger
 bulletAirMove: 	.byte 0    #Counter used for speed. It does not change
@@ -44,10 +43,10 @@ speedBullet:	.byte 1
 #config invader
 .align 2 	#
 invader: 	.space 140 #40 invader. MATRIZ 10X4
-invaderWidth:	.byte 26
-invaderHeight:	.byte 12
-invaderX: 	.byte 6
-invaderY:	.byte 4
+invaderWidth:	.word 26
+invaderHeight:	.word 12
+invaderX: 	.word 6
+invaderY:	.word 4
 
 
 #invader
@@ -61,17 +60,45 @@ teste: .asciiz "teste"
 main:
 	jal background
 	jal border
-	jal drawAircraft
-	jal drawInvaders
-	li $a0, 500
-	li $v0, 32
-	syscall
-	jal cleanInvaders
-	jal cleanAirCraft
-	jal ClearRegisters
+	
 	
 mainLoop:
-		
+	jal drawAircraft
+	jal drawInvaders
+	
+	li $a0, 500
+	li $v0, 32 #dekay
+	syscall
+	
+	jal cleanInvaders
+	jal moveAirCraftLeft
+	jal moveInvadersLeft
+	li $a0, 500
+	li $v0, 32 #dekay
+	syscall
+	jal moveAirCraftLeft
+	jal moveInvadersLeft
+	li $a0, 500
+	li $v0, 32 #dekay
+	syscall
+	jal moveAirCraftRight
+	jal moveInvadersRight
+	li $a0, 500
+	li $v0, 32 #dekay
+	syscall
+	jal moveAirCraftRight
+	jal moveInvadersRight
+	li $a0, 500
+	li $v0, 32 #dekay
+	syscall
+	jal moveAirCraftRight
+	jal moveInvadersRight
+	li $a0, 500
+	li $v0, 32 #dekay
+	syscall
+	jal moveAirCraftRight
+	jal moveInvadersRight
+	jal ClearRegisters	
 	b mainLoop
 	
 mainkey:
@@ -171,16 +198,18 @@ borderDown:
 	add $sp, $sp, 4
 	jr $ra	
 	
+
+	
 drawAircraft:
 	add $sp, $sp, -4
 	sw $ra, 0($sp)
-	li $t0, 0
 	lw $t0, aircraftColor 
-	lb $t1, aircraftSize
+	lw $t1, aircraftSize
 	
-	lb $t3, aircraftX #x
-	lb $t4, aircraftY #y
+	lw $t3, aircraftX #x
+	lw $t4, aircraftY #y
 	move $a1, $t4
+	
 drawAircraftLoop:
 	move $a0, $t3	
 	jal CoordinateToAddress
@@ -204,10 +233,11 @@ cleanAirCraft:
 	sw $ra, 0($sp)
 	li $t0, 0
 	lw $t0, backgroundColor 
-	lb $t1, aircraftSize
+	lw $t1, aircraftSize
 	
-	lb $t3, aircraftX #x
-	lb $t4, aircraftY #y
+	lw $t3, aircraftX #x
+	lw $t4, aircraftY #y
+	
 cleanAirCraftLoop:
 	move $a0, $t3
 	move $a1, $t4
@@ -227,16 +257,54 @@ cleanAirCraftLoop:
 	add $sp, $sp, 4
 	jr $ra
 
-		
+moveAirCraftLeft:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	jal cleanAirCraft
+	
+	lw $t1, aircraftSize
+	lw $t3, aircraftX #x
+	subi $t3, $t3, 2
+	subi $t1, $t1, 2
+	sw $t1, aircraftSize
+	sw $t3, aircraftX
+	jal drawAircraft
+
+	#return
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra
+	
+moveAirCraftRight:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	jal cleanAirCraft
+	
+	lw $t1, aircraftSize
+	lw $t3, aircraftX #x
+	addi $t3, $t3, 2
+	addi $t1, $t1, 2
+	sw $t1, aircraftSize
+	sw $t3, aircraftX
+	
+	jal drawAircraft
+
+	#return
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra	
+
 	
 drawInvaders:
 	add $sp, $sp, -4
 	sw $ra, 0($sp)
 	lw $t0, invaderColor 
-	lb $t1, invaderWidth #width
-	lb $t2, invaderHeight #height
-	lb $t3, invaderX #x
-	lb $t4, invaderY #y
+	lw $t1, invaderWidth #width
+	lw $t2, invaderHeight #height
+	lw $t3, invaderX #x
+	lw $t4, invaderY #y
 drawInvadersLoop:
 	move $a0, $t3
 	move $a1, $t4
@@ -253,11 +321,6 @@ drawInvadersLoop:
 	lw $ra, 0($sp)
 	add $sp, $sp, 4
 	jr $ra		
-
-
-moveInvaderLeft:
-
-moveInvaderRight:
 
 
 cleanInvaders:
@@ -286,8 +349,48 @@ cleanInvadersLoop:
 	jr $ra		
 
 
+moveInvadersLeft:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
 	
-				
+	jal cleanInvaders
+	
+	lw $t1, invaderWidth
+	lw $t3, invaderX
+	subi $t1, $t1, 2
+	subi $t3, $t3, 2
+	sw $t1, invaderWidth
+	sw $t3, invaderX
+	
+	jal drawInvaders
+	
+	#return
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra	
+	
+moveInvadersRight:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	jal cleanInvaders
+	
+	lw $t1, invaderWidth
+	lw $t3, invaderX
+	addi $t1, $t1, 2
+	addi $t3, $t3, 2
+	sw $t1, invaderWidth
+	sw $t3, invaderX
+	
+	jal drawInvaders
+	
+	#return
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra	
+
+
+		
 
 getKey:
 	lw $t0, 0xFFFF0004		#Load the pressed value (ASCII)
