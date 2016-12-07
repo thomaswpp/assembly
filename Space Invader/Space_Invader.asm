@@ -29,24 +29,30 @@ backgroundColor: .word 0x00000000  #black
 borderColor:	 .word 0x00228b22  #green
 invaderColor:	 .word 0x00ff0000  #red
 aircraftColor:	 .word 0xcc6611  #green
-#bulletColor: 	 .word 0x00228b22  #green
+bulletColor: 	 .word 0x00228b22  #green
 
 #config aircraft
-aircraftX: 	.word 15   #Player initial position
-aircraftY:	.word 29   #Player initial position
-aircraftSize: 	.word 18  
+aircraft:	.space 16  #vector para amarzenar os endereço
+aircraftX: 	.word 15   #posição inicial X do jogador
+aircraftY:	.word 29   #Posição inicial Y do jogador
+aircraftSize: 	.word 18   #Tamanho em largura do jogador
 bulletAir:	.word 0	   #Address in memory of the trigger position
 bulletAirExist: .byte 0    # 0 = no exist trigger, 1 = exist trigger
 bulletAirMove: 	.byte 0    #Counter used for speed. It does not change
-speedBullet:	.byte 1 
+ 
+
+speedBullet:	.byte 1
+ 
 
 #config invader
 .align 2 	#
-invader: 	.space 140 #40 invader. MATRIZ 10X4
-invaderWidth:	.word 26
-invaderHeight:	.word 12
-invaderX: 	.word 6
-invaderY:	.word 4
+invader: 	   .space 140 #40 invader. MATRIZ 10X4
+invaderWidth:      .word 26
+invaderHeight:	   .word 12
+invaderX: 	   .word 6
+invaderY:	   .word 4
+invadersLive:	   .space 40 	# 0 = muerto, 1 = vivo. vector lleno de unos
+invadersLiveCount: .byte 40 	# count all invaders
 
 
 #invader
@@ -64,7 +70,10 @@ main:
 	
 mainLoop:
 	jal drawAircraft
+	#jal CreateInvadersLive
 	jal drawInvaders
+	jal createBulletAir
+	jal moveBulletAir
 	
 	li $a0, 500
 	li $v0, 32 #dekay
@@ -73,31 +82,38 @@ mainLoop:
 	jal cleanInvaders
 	jal moveAirCraftLeft
 	jal moveInvadersLeft
+	jal moveBulletAir
 	li $a0, 500
 	li $v0, 32 #dekay
 	syscall
 	jal moveAirCraftLeft
 	jal moveInvadersLeft
+	jal moveBulletAir
 	li $a0, 500
 	li $v0, 32 #dekay
 	syscall
 	jal moveAirCraftRight
 	jal moveInvadersRight
+	jal moveBulletAir
 	li $a0, 500
 	li $v0, 32 #dekay
 	syscall
 	jal moveAirCraftRight
 	jal moveInvadersRight
+	jal moveBulletAir
 	li $a0, 500
 	li $v0, 32 #dekay
 	syscall
 	jal moveAirCraftRight
 	jal moveInvadersRight
+	jal moveBulletAir
 	li $a0, 500
 	li $v0, 32 #dekay
 	syscall
 	jal moveAirCraftRight
 	jal moveInvadersRight
+	jal moveInvadersDown
+	jal moveBulletAir
 	jal ClearRegisters	
 	b mainLoop
 	
@@ -198,7 +214,39 @@ borderDown:
 	add $sp, $sp, 4
 	jr $ra	
 	
-
+############################################
+#		AIRCRAFT
+############################################
+#create aircrate in vector
+createAircraft:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	lw $t1, aircraftSize
+	lw $t3, aircraftX #x
+	lw $t4, aircraftY #y
+	move $a1, $t4
+	li $t0, 0
+createAircraftLoop:
+		
+	move $a0, $t3	
+	jal CoordinateToAddress
+	sw $v0, aircraft($t0)
+	addiu $t3, $t3, 1
+	addiu $t0, $t0, 1
+	bne $t3, $t1, drawAircraftLoop
+	
+	#gerar cabeça do aircraft
+	subi $a0, $t3, 2
+	subi $a1, $t4, 1
+	jal CoordinateToAddress
+	sw $t0, 0($v0)
+	
+	#return
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra
+	
 	
 drawAircraft:
 	add $sp, $sp, -4
@@ -295,6 +343,91 @@ moveAirCraftRight:
 	lw $ra, 0($sp)
 	add $sp, $sp, 4
 	jr $ra	
+	
+	
+###########################################
+#	    BULLET AIRCRAFT	
+###########################################		
+#Cria disparo na memória	
+createBulletAir:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	#recuperar posição atual do jogador
+	lw $t3, aircraftX #x
+	lw $t4, aircraftY #y
+	
+	#ajustar para o tiro sair em cima do aircraft
+	subi $t4, $t4, 2
+	addiu $t3, $t3, 2
+	
+	#criar o endereço de memória
+	move $a0, $t3 #x
+	move $a1, $t4 #y
+	jal CoordinateToAddress
+	
+	#salvando a posição atual da bala
+	sw $v0, bulletAir
+ 	jal drawBulletAir
+	
+	#return
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra
+		
+		
+#Limpar disparo do jogador
+cleanBulletAir:
+	lw $t0 bulletAir
+	lw $t1 backgroundColor
+	sw $t1 0($t0)
+	jr $ra
+	
+
+#Mostrar disparo do jogador
+drawBulletAir:
+	lw $t0, bulletAir
+	lw $t1, bulletColor
+	sw $t1, ($t0)
+	jr $ra
+	
+#Move disparo para cima do jogador					
+moveBulletAir:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal cleanBulletAir
+	lw $t0, bulletColor 
+	lw $t0, bulletAir
+	subi $t0, $t0, 128
+	sw $t0, bulletAir
+	jal drawBulletAir
+	
+	#return
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra
+	
+	
+	
+			
+
+#Create vector in memory the invades live ou dead.
+CreateInvadersLive:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	li $t0, 0
+	li $t1, 1
+	
+CreateInvadersLiveLoop:
+	sb $t1, invadersLive($t0)
+	addi $t0, $t0, 1
+	bne $t0, 40, CreateInvadersLiveLoop
+	
+	#return							
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra	
+	
 
 	
 drawInvaders:
@@ -305,12 +438,17 @@ drawInvaders:
 	lw $t2, invaderHeight #height
 	lw $t3, invaderX #x
 	lw $t4, invaderY #y
+	li $t5, 0 #count
+	lw $t7, backgroundColor
 drawInvadersLoop:
+	#lb $t6, invadersLive($t5) 
 	move $a0, $t3
 	move $a1, $t4
 	jal CoordinateToAddress
+	#beqz $t6, invadersDead
 	sw $t0, 0($v0)
 	addiu $t3, $t3, 2
+	addi $t5, $t5, 1
 	bne $t3, $t1, drawInvadersLoop
 	#passa para linha de baixo
 	add $t4, $t4, 2
@@ -321,16 +459,24 @@ drawInvadersLoop:
 	lw $ra, 0($sp)
 	add $sp, $sp, 4
 	jr $ra		
-
+invadersDead:
+	sw $t7, 0($v0)
+	addiu $t3, $t3, 2
+	bne $t5, 40, drawInvadersLoop
+	
+	#return
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra
 
 cleanInvaders:
    	add $sp, $sp, -4
     	sw $ra, 0($sp)
     	lw $t0, backgroundColor 
-    	lb $t1, invaderWidth #width
-    	lb $t2, invaderHeight #height
-    	lb $t3, invaderX #x
-    	lb $t4, invaderY #y
+    	lw $t1, invaderWidth #width
+    	lw $t2, invaderHeight #height
+    	lw $t3, invaderX #x
+    	lw $t4, invaderY #y
 cleanInvadersLoop:
 	move $a0, $t3
 	move $a1, $t4
@@ -389,6 +535,27 @@ moveInvadersRight:
 	add $sp, $sp, 4
 	jr $ra	
 
+
+	
+moveInvadersDown:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	jal cleanInvaders
+	
+	lw $t2, invaderHeight #height
+	lw $t4, invaderY #y
+	addi $t2, $t2, 2
+	addi $t4, $t4, 2
+	sw $t2, invaderHeight
+	sw $t4, invaderY
+	
+	jal drawInvaders
+	
+	#return
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra	
 
 		
 
