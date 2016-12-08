@@ -14,6 +14,8 @@
 #	Base Address for Display: 0x10008000 ($gp)		     #
 ######################################################################
 
+.include "macros.asm"
+
 .data
 
 #Game Core information
@@ -37,6 +39,7 @@ aircraft:	.space 16  #vector para amarzenar os endereço
 aircraftX: 	.word 15   #posição inicial X do jogador
 aircraftY:	.word 29   #Posição inicial Y do jogador
 aircraftSize: 	.word 18   #Tamanho em largura do jogador
+aircraftLive:	.byte 3    #começa com 3 vidas
 bulletAir:	.word 0	   #Address in memory of the trigger position
 bulletAirExist: .byte 0    # 0 = no exist trigger, 1 = exist trigger
 bulletAirMove: 	.byte 0    #Counter used for speed. It does not change
@@ -52,10 +55,11 @@ invaderWidth:      	.word 26
 invaderHeight:	   	.word 12
 invaderX: 	  	 .word 6
 invaderY:	   	.word 2
-invadersLive:	   	.space 40 	# 0 = muerto, 1 = vivo. vector lleno de unos
-invadersLiveCount: 	.byte 40 	# count all invaders
+invaderDirection: 	.byte 0 	# 0 = left, 1 = right
+invaderLive:	   	.space 40 	# 0 = muerto, 1 = vivo. vector lleno de unos
+invaderLiveCount: 	.byte 40 	# count all invaders
 bulletInvader:	   	.word 0		#Address in memory of the trigger position
-bulletInvaderExist: 	.byte 0   	 # 0 = no exist trigger, 1 = exist trigger
+bulletInvaderExist: 	.byte 0   	# 0 = no exist trigger, 1 = exist trigger
 bulletInvaderMove: 	.byte 0    	#Counter used for speed. It does not change
 
 
@@ -72,78 +76,45 @@ main:
 	jal border
 	jal createAircraft
 	jal drawAircraft
-	jal createBulletAir
-	jal createBulletInvader
+	jal drawInvaders
 	
 mainLoop:
-	#jal drawAircraft
-	#jal CreateInvadersLive
-	jal drawInvaders
-	jal moveAircraftLeft
+	jal createBulletInvader
 	jal moveBulletAir
 	jal moveBulletInvader
+	jal moveInvaders
 	
-	li $a0, 500
-	li $v0, 32 #dekay
-	syscall
 	
-	jal cleanInvaders
-	jal moveAircraftLeft
-	jal moveInvadersLeft
-	jal moveBulletAir
-	jal moveBulletInvader
+	jal ClearRegisters
 	
-	li $a0, 500
-	li $v0, 32 #dekay
-	syscall
+	li $t1, 500
+	sleep($t1)
 	
-	jal moveAircraftLeft
-	jal moveInvadersLeft
-	jal moveBulletAir
-	jal moveBulletInvader
-	
-	li $a0, 500
-	li $v0, 32 #dekay
-	syscall
-	
-	jal moveAircraftRight
-	jal moveInvadersRight
-	jal moveBulletAir
-	jal moveBulletInvader
-	
-	li $a0, 500
-	li $v0, 32 #dekay
-	syscall
-	
-	jal moveAircraftRight
-	jal moveInvadersRight
-	jal moveBulletAir
-	jal moveBulletInvader
-	
-	li $a0, 500
-	li $v0, 32 #dekay
-	syscall
-	
-	jal moveAircraftRight
-	jal moveInvadersRight
-	jal moveBulletAir
-	jal moveBulletInvader
-	
-	li $a0, 500
-	li $v0, 32 #dekay
-	syscall
-	
-	jal moveAircraftRight
-	jal moveInvadersRight
-	jal moveInvadersDown
-	jal moveBulletAir
-	jal moveBulletInvader
-	
-	jal ClearRegisters	
-	b mainLoop
-	
+	lw $t0, 0xFFFF0000		
+	blez $t0, mainLoop
+
+#função main para obter a tecla pressionada		
 mainkey:
 	jal getKey
+	move $t0, $v0	
+
+#função main para mover o jogador para esquerda		
+mainMoveAirLeft:
+	bne $t0, 0x02000000, mainMoveRight # A
+
+#função main para mover o jogador para 	direita
+mainMoveAirRight:
+	bne $t0, 0x01000000 mainBulletAir # D	
+
+#função main para criar o disparo do jogador	
+mainBulletAir:
+	bne $t0, 0x03000000 mainLoop # space
+	jal createBulletAir
+	j mainLoop
+	
+		
+	
+
 	
 mainMoveleft:
 mainMoveRight:
@@ -311,6 +282,12 @@ cleanAircraftLoop:
 	lw $ra, 0($sp)
 	add $sp, $sp, 4
 	jr $ra
+	
+#mudar a cor do jogador quando foi atingido	
+changeColorAir:
+	li $t0, 0x006666FF
+	sw $t0,	aircraftColor
+	jal drawAircraft	
 		
 #mover o jogador para esquerda							
 moveAircraftLeft:
@@ -361,7 +338,7 @@ moveAircraftRight:
 moveAircraftRightLoop:
 
 	lw $t2, aircraft($t0)
-	beq $t3, 28, returnAircraftRight #limite máximo para direita
+	beq $t3, 26, returnAircraftRight #limite máximo para direita
 	addi $t2, $t2, 4
 	sw $t2, aircraft($t0)
 	addi $t0, $t0, 4
@@ -389,6 +366,10 @@ createBulletAir:
 	add $sp, $sp, -4
 	sw $ra, 0($sp)
 	
+	#checar se disparo do jogador existe, se sim não pode disparar novamente
+	lb $t0, bulletAirExist
+	beq $t0, 1, returnCreateBulletAir
+	
 	#recuperar posição atual do jogador
 	lw $t3, aircraftX #x
 	lw $t4, aircraftY #y
@@ -405,8 +386,11 @@ createBulletAir:
 	#salvando a posição atual da bala
 	sw $v0, bulletAir
  	jal drawBulletAir
+ 	
+ 	li $t0, 1
+ 	sb $t0, bulletAirExist
 	
-	#return
+returnCreateBulletAir
 	lw $ra, 0($sp)
 	add $sp, $sp, 4
 	jr $ra
@@ -443,6 +427,12 @@ moveBulletAir:
 	add $sp, $sp, 4
 	jr $ra
 	
+#Função que finaliza o tiro do jogador
+endBulletAir:
+	li $t0, 0
+ 	sb $t0, bulletAirExist 
+	jal cleanBulletAir
+	j mainLoop
 
 
 	
@@ -516,6 +506,12 @@ cleanInvadersLoop:
 	add $sp, $sp, 4
 	jr $ra		
 
+
+moveInvaders:
+	lb $t1, invaderDirection
+	beqz $t1, moveInvadersLeft
+	beq $t1, 1, moveInvadersRight
+
 #mover o invasor para esquerda
 moveInvadersLeft:
 	add $sp, $sp, -4
@@ -523,7 +519,7 @@ moveInvadersLeft:
 	
 	#recuperar a posição atual dos invaders
 	lw $t3, invaderX
-	beq $t3, 3, returnInvadersLeft #limite máximo do invaders
+	beq $t3, 3, moveInvadersDownLeft #limite máximo do invaders
 	
 	jal cleanInvaders
 	
@@ -550,7 +546,7 @@ moveInvadersRight:
 	sw $ra, 0($sp)
 	
 	lw $t3, invaderX
-	beq $t3, 12, returnInvadersRight #limite máximo do invaders
+	beq $t3, 10, moveInvadersDownRight #limite máximo do invaders
 	jal cleanInvaders
 	
 	lw $t1, invaderWidth
@@ -567,13 +563,24 @@ returnInvadersRight:
 	add $sp, $sp, 4
 	jr $ra	
 
+moveInvadersDownLeft:
+	li $t1, 1
+	sb $t1, invaderDirection
+	b moveInvadersDown
+	
+moveInvadersDownRight:
+	li $t1, 0
+	sb $t1, invaderDirection
+	b moveInvadersDown
 
 moveInvadersDown:
-	add $sp, $sp, -4
-	sw $ra, 0($sp)
+	#add $sp, $sp, -4
+	#sw $ra, 0($sp)
 	
 	lw $t4, invaderY #y
-	beq $t4, 15, returnInvadersDown
+	addi $t4, $t4, 1	#verificar se o jogador perdeu
+	beq $t4, 15, gameOver
+	
 	jal cleanInvaders
 	
 	lw $t4, invaderY #y #para evitar erro de lixo vindo da função clean
@@ -602,6 +609,12 @@ createBulletInvader:
 	add $sp, $sp, -4
 	sw $ra, 0($sp)
 	
+	jal collisionsBulletInvaders
+	
+	#verificar se o disparo não existe
+	lb $t0, bulletInvaderExist 
+	beq $t0, 1, returnCreateBulletInvader 
+	
 	#recuperar posição atual dos invaders
 	lw $t4, invaderY #y
 	lw $t1, invaderWidth
@@ -619,9 +632,13 @@ createBulletInvader:
 	
 	#salvando a posição atual da bala
 	sw $v0, bulletInvader
+	
  	jal drawBulletInvader
 	
-	#return
+	li $t0, 1
+ 	sb $t0, bulletInvaderExist
+	
+returnCreateBulletInvader:
 	lw $ra, 0($sp)
 	add $sp, $sp, 4
 	jr $ra	
@@ -642,14 +659,16 @@ drawBulletInvader:
 	sw $t1, 0($t0)
 	jr $ra	
 
-#Move disparo para cima do jogador					
+#Move disparo para baixo
 moveBulletInvader:
 	add $sp, $sp, -4
 	sw $ra, 0($sp)
 	
-	jal cleanBulletInvader
+	#verificar se o disparo existe
+	lb $t0, bulletInvaderExist 
+	beqz $t0, returnBulletInvader
 	
-	lw $t0, bulletInvaderColor 
+	jal cleanBulletInvader
 	
 	lw $t0, bulletInvader
 	addi $t0, $t0, 128
@@ -661,8 +680,38 @@ returnBulletInvader:
 	lw $ra, 0($sp)
 	add $sp, $sp, 4
 	jr $ra
+	
+#função que finaliza o disparo do invader	
+endBulletInvader:
+	li $t0, 0
+ 	sb $t0, bulletInvaderExist 
+	jal cleanBulletInvader
+	j mainLoop
 
-
+#checa se o tiro atingiu o jogador ou chegou ao fim
+collisionsBulletInvaders:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	lw $t0, bulletInvader
+	lw $t1, aircraftColor
+	addi $t0, $t0, 128
+		
+	#comparar se acertor o jogador
+	beq $t1, $t0, changeColorAir
+	#comparar se finalizou o disparo
+	bge $t1, 0x10008F80, endBulletInvader 
+	
+returnCollisionsBulletInvaders:
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra
+	
+	
+gameOver:
+	#limpar toda a tela
+	
+	
 getKey:
 	lw $t0, 0xFFFF0004		#Load the pressed value (ASCII)
 getRightKey:
