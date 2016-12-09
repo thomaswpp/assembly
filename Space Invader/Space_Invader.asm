@@ -446,7 +446,8 @@ returnMoveBulletAir:
 #Função que finaliza o tiro do jogador
 endBulletAir:
 	li $t0, 0
- 	sb $t0, bulletAirExist 
+ 	sb $t0, bulletAirExist
+ 	sb $t0, bulletAirMove  
 	jal cleanBulletAir
 	j mainLoop
 
@@ -465,7 +466,7 @@ createInvaders:
 	lb $t3, invaderX #x
 	lb $t4, invaderY #y
 	li $t5, 0 #count
-	
+	li $t6, 1
 createInvadersLoop:
 	move $a0, $t3
 	move $a1, $t4
@@ -473,6 +474,7 @@ createInvadersLoop:
 	sw $v0, invaders($t5)
 	addi $t5, $t5, 4
 	addiu $t3, $t3, 2
+	sw $t6, invaderLive($t3)     #setar 1 para os invaders vivos
 	bne $t3, $t1, createInvadersLoop
 	add $t4, $t4, 2
 	lb $t3, invaderX
@@ -671,12 +673,39 @@ returnInvadersDown:
 ########################################
 #	DEAD INVADER
 ########################################
-
-
+deadInvader:
+	add $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	lw $t0, bulletAir
+	subi $t0, $t0, 128
+	
+	lb $t1, invaderLiveCount
+	
+	li $t2, 0 #contar bytes
+	li $t3, 0 #contador
+deadInvaderLoop:
+	lw $t4, invaders($t2)
+	beq $t0, $t4, eliminarInvader
+	addi $t2, $t2, 4
+	addi $t3, $t3, 1
+	bne $t3, $t1, deadInvaderLoop
+	
+eliminarInvader:
+	subi $t1, $t1, 1
+	sb $t1, invaderLiveCount
+	li $t1, 0
+	sw $t1, invaderLive($t3)
+	b endBulletAir	 	 
+returnDeadInvader:
+	lw $ra, 0($sp)
+	add $sp, $sp, 4
+	jr $ra	
 
 
 ###########################################
-#	    BULLET INVADERS
+###########################################
+#   FUNÇÕES DE DISPAROS DOS INVADERS
 ###########################################				
 #criar bala em um vetor
 createBulletInvader:
@@ -736,7 +765,6 @@ moveBulletInvader:
 	add $sp, $sp, -4
 	sw $ra, 0($sp)
 	
-	
 	#verificar se o disparo existe
 	lb $t0, bulletInvaderExist 
 	beqz $t0, returnBulletInvader
@@ -768,9 +796,16 @@ returnBulletInvader:
 #função que finaliza o disparo do invader	
 endBulletInvader:
 	li $t0, 0
- 	sb $t0, bulletInvaderExist 
+ 	sb $t0, bulletInvaderExist
+ 	sb $t0, bulletInvaderMove 
 	jal cleanBulletInvader
 	j mainLoop
+
+
+##################################################
+##################################################
+#      FUNÇÕES VERIFICA COLISÕES DOS DISPAROS
+##################################################
 
 #checa se o tiro do invader atingiu o jogador ou chegou ao fim
 collisionsBulletInvaders:
@@ -810,7 +845,7 @@ collisionsBulletAir:
 	lw $t4, invaderColor
 	#comparar se acertor o invader
 	#############AJUSTAR AQUI############
-	beq $t2, $t4, endBulletAir
+	beq $t2, $t4, deadInvader
 	beq $t2, $t3, endBulletAir #verificar se disparo se chocaram
 	
 returnCollisionsBulletAir:
