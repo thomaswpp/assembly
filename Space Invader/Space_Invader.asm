@@ -26,6 +26,8 @@ screenHeight: 	.word 32
 
 speed:		.byte 60  #Each time you run the game loop. Milliseconds.
 
+liveCount:	.byte 2		#contar as vidas
+
 #Color
 backgroundColor: 	.word 0x00000000  #black
 borderColor:	 	.word 0x00228b22  #green
@@ -499,15 +501,18 @@ drawInvaders:
 	lb $t4, invaderSize
 	li $t5, 0
 drawInvadersLoop:
+	lb $t6, invaderLive($t5)
+	beqz $t6, drawDeadInvaders
 	lw $t2, invaders($t0)
 	sw $t1, 0($t2)  
 	addi $t0, $t0, 4
-	addi $t5 $t5 1
+	addi $t5, $t5, 1
 	bne $t5, $t4, drawInvadersLoop
+	b returnDrawInvaders
 drawDeadInvaders:
-	addi $t0 $t0 4
-	addi $t5 $t5 1
-	bne $t5 40 drawDeadInvaders					
+	addi $t0, $t0, 4
+ 	addi $t5, $t5, 1
+	bne $t5, $t4, drawInvadersLoop					
 
 returnDrawInvaders:
 	lw $ra, 0($sp)
