@@ -26,7 +26,7 @@ screenHeight: 	.word 32
 
 speed:		.byte 60  #Each time you run the game loop. Milliseconds.
 
-liveCount:	.byte 2		#contar as vidas
+liveCount:	.byte 3		#contar as vidas do jogador
 
 #Color
 backgroundColor: 	.word 0x00000000  #black
@@ -35,6 +35,7 @@ invaderColor:	 	.word 0x00ff0000  #red
 aircraftColor:	 	.word 0xcc6611    #green
 bulletColor: 	 	.word 0x00228b22  #green
 bulletInvaderColor: 	.word 0x00ffff00 
+gameOverColor:		.word 0x00FF9933
 
 #config aircraft
 aircraft:		.space 16  #vector para amarzenar os endereço
@@ -86,7 +87,6 @@ mainLoop:
 	jal moveBulletAir
 	jal moveBulletInvader
 	jal moveInvaders
-	
 	
 	jal ClearRegisters
 	
@@ -285,7 +285,13 @@ cleanAircraftLoop:
 	
 #mudar a cor do jogador quando foi atingido	
 changeColorAir:
-	li $t0, 0x006666FF
+	#controlar a vida do jogador
+	lb $t1, liveCount
+	subi $t1, $t1, 1
+	beqz $t1, gameOver
+	sb $t1, liveCount
+	
+	li $t0, 0x006666FF	#mudar a cor do jogador por que foi atingido
 	sw $t0,	aircraftColor
 	jal drawAircraft
 	jal endBulletInvader	
@@ -357,7 +363,7 @@ returnAircraftRight:
 	add $sp, $sp, 4
 	jr $ra
 	
-	
+###########################################	
 ###########################################
 #	    BULLET AIRCRAFT	
 ###########################################		
@@ -913,5 +919,15 @@ ClearRegisters:
 
 
 gameOver:
-	#limpar toda a tela	
+	lw $a0, gameOverColor
+	lw $a1, screenWidth
+	lw $a2, screenHeight
+	mul $a2, $a1, $a2     #total de pixel
+	mul $a2, $a2, 4       #align addresses	
+	add $a2, $a2, $gp     #add base address of gp
+	add $a1, $gp, $zero   #loop counter
+gameOverLoop:
+	sw $a0, 0($a1)
+	addiu $a1, $a1, 4 
+	bne $a1, $a2, gameOverLoop
 
