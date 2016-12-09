@@ -208,7 +208,7 @@ borderDown:
 	add $sp, $sp, 4
 	jr $ra	
 	
-
+############################################
 ############################################
 #		AIRCRAFT
 ############################################
@@ -465,8 +465,9 @@ createInvaders:
 	lb $t2, invaderHeight #height
 	lb $t3, invaderX #x
 	lb $t4, invaderY #y
-	li $t5, 0 #count
+	li $t5, 0 #count bytes
 	li $t6, 1
+	li $t7, 0 #contador
 createInvadersLoop:
 	move $a0, $t3
 	move $a1, $t4
@@ -474,13 +475,17 @@ createInvadersLoop:
 	sw $v0, invaders($t5)
 	addi $t5, $t5, 4
 	addiu $t3, $t3, 2
-	sw $t6, invaderLive($t3)     #setar 1 para os invaders vivos
 	bne $t3, $t1, createInvadersLoop
 	add $t4, $t4, 2
 	lb $t3, invaderX
 	bne $t4, $t2, createInvadersLoop
 	
-	#return
+invadersLiveLoop:
+	sb $t6, invaderLive($t7)     #setar 1 para os invaders vivos
+	addi $t7, $t7, 1
+	bne $t7, 40, invadersLiveLoop 
+	 	
+returnCreateInvaders:
 	lw $ra, 0($sp)
 	add $sp, $sp, 4
 	jr $ra
@@ -499,8 +504,12 @@ drawInvadersLoop:
 	addi $t0, $t0, 4
 	addi $t5 $t5 1
 	bne $t5, $t4, drawInvadersLoop
-					
-	#return
+drawDeadInvaders:
+	addi $t0 $t0 4
+	addi $t5 $t5 1
+	bne $t5 40 drawDeadInvaders					
+
+returnDrawInvaders:
 	lw $ra, 0($sp)
 	add $sp, $sp, 4
 	jr $ra	
@@ -695,7 +704,7 @@ eliminarInvader:
 	subi $t1, $t1, 1
 	sb $t1, invaderLiveCount
 	li $t1, 0
-	sw $t1, invaderLive($t3)
+	sb $t1, invaderLive($t3)
 	b endBulletAir	 	 
 returnDeadInvader:
 	lw $ra, 0($sp)
